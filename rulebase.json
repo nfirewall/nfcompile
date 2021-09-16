@@ -1,0 +1,20 @@
+{
+    "rulebase": [
+      {
+        "protocol": "tcp",
+        "sport": "any",
+        "dport": "22",
+        "src": "any",
+        "dst": "any",
+        "interface": "any",
+        "action": "accept",
+        "id": "some-uuid"
+      }
+    ],
+    "options": {
+      "stateful": true,
+      "default_drop": true,
+      "allow_pings": true,
+      "allow_local_pings": true
+    }
+  }
