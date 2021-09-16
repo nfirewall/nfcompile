@@ -19,6 +19,42 @@ class JumpAction(Action):
     def get(self):
         return {"jump": {"target": self._target.name}}
 
+class Set(dict):
+
+    def __init__(self, name, family, type, table):
+        self._members = []
+        self["family"] = family
+        self["type"] = type
+        self["name"] = name
+        self._table = table
+        self["table"] = table.name
+        self["flags"] = ["interval"]
+        self._protocol = ""
+    
+    def add_member(self, member):
+        members = self._members
+        for _member in members:
+            if _member == member:
+                return
+        members.append(member)
+        self._members = members
+        self["elem"] = self._members
+    
+    @property
+    def members(self) -> list:
+        return self._members
+    
+    @property
+    def protocol(self) -> str:
+        return self._protocol
+    
+    @protocol.setter
+    def protocol(self, var: str) -> None:
+        if var not in ["tcp", "udp"]:
+            raise Exception("Invalid protocol: {}".format(var))
+        self._protocol = var
+
+
 class Match(dict):
 
     def __init__(self, left, op, right):
@@ -75,10 +111,10 @@ class Rule(dict):
         if len(self._matches):
             for match in self._matches:
                 self["expr"].append({"match": match})
-        if self._action:
-            self["expr"].append(self._action.get())
         if self._log:
             self["expr"].append(self._log)
+        if self._action:
+            self["expr"].append(self._action.get())
     
     def add_match(self, match):
         matches = self.matches

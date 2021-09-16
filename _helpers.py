@@ -10,10 +10,3 @@ def validate_family(family):
 def validate_op(op):
     if not op in ops:
         raise InvalidOperationException("Invalid Operation: {}".format(op))
-
-
-def default(dict, key, default):
-    try:
-        return dict[key]
-    except KeyError:
-        return default

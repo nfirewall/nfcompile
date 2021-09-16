@@ -3,17 +3,112 @@
       {
         "protocol": "tcp",
         "sport": "any",
-        "dport": "22",
+        "dport": ["ssh", "dns_tcp"],
         "src": "any",
-        "dst": "any",
+        "dst": "self",
         "interface": "any",
         "action": "accept",
         "id": "some-uuid"
+      },
+      {
+        "protocol": "tcp",
+        "sport": "any",
+        "dport": ["mysql"],
+        "src": "any",
+        "dst": "self",
+        "interface": "any",
+        "action": "accept",
+        "id": "some-uuid2"
       }
     ],
+    "objects": {
+      "hosts": {
+        "self": {
+          "name": "self",
+          "type": "hostv4v6",
+          "valuev4": "10.250.109.20",
+          "valuev6": "2a01:8000:5:9::27"
+        }
+      },
+      "networks": {
+        "Servers": {
+          "name": "Servers",
+          "type": "networkv4v6",
+          "valuev4": "10.250.100.0/24",
+          "valuev6": "2a01:8000:5:2::/64"
+        },
+        "VDI": {
+          "name": "VDI",
+          "type": "networkv4v6",
+          "valuev4": "10.250.103.0/24",
+          "valuev6": "2a01:8000:5:3::/64"
+        },
+        "VPN": {
+          "name": "VPN",
+          "type": "networkv4",
+          "valuev4": "10.250.98.0/24"
+        }
+      },
+      "services": {
+        "dns_tcp": {
+          "name": "dns_tcp",
+          "type": "tcp",
+          "value": 53
+        },
+        "dns_udp": {
+          "name": "dns_udp",
+          "type": "udp",
+          "value": 53
+        },
+        "ssh": {
+          "name": "ssh",
+          "type": "tcp",
+          "value": 22
+        },
+        "mysql": {
+          "name": "mysql",
+          "type": "tcp",
+          "value": 3306
+        }
+      },
+      "groups": {
+        "DC1": {
+          "name": "DC1",
+          "type": "network",
+          "members": [
+            "Servers",
+            "VDI"
+          ]
+        },
+        "domain": {
+          "name": "domain",
+          "type": "service",
+          "members": [
+            "dns_tcp",
+            "dns_udp"
+          ]
+        },
+        "doublenesting": {
+          "name": "doublenesting",
+          "type": "network",
+          "members": [
+            "DC1",
+            "VPN"
+          ]
+        },
+        "doublenesetedservice": {
+          "name": "doublenesetedservice",
+          "type": "service",
+          "members": [
+            "domain",
+            "ssh"
+          ]
+        }
+      }
+    },
     "options": {
       "stateful": true,
-      "default_drop": true,
+      "default_drop": false,
       "allow_pings": true,
       "allow_local_pings": true
     }
