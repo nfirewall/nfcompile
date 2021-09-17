@@ -8,8 +8,6 @@ def create_tables() -> list:
     tables = []
     _table = Table("inet", "inet_filter")
     tables.append(_table)
-    _table = Table("inet", "inet_nat")
-    tables.append(_table)
     return tables
 
 def create_filter_chains(options, table) -> dict:
@@ -315,7 +313,7 @@ def parse_nat(nat: dict, chains: dict, sets: dict) -> Rule:
         dst = nat["dst"]
         type = nat["type"]
         dport = nat["dport"]
-        natto = nat["natto"]
+        target = nat["target"]
         proto = nat["proto"]
         id = nat["id"]
     except KeyError:
@@ -323,13 +321,13 @@ def parse_nat(nat: dict, chains: dict, sets: dict) -> Rule:
     
     if type == "hide":
         chain = "postrouting"
-        _action = SnatAction(natto)
+        _action = SnatAction(target)
     elif type == "snat":
         chain = "postrouting"
-        _action = SnatAction(natto)
+        _action = SnatAction(target)
     elif type == "dnat":
         chain = "prerouting"
-        _action = DnatAction(natto)
+        _action = DnatAction(target)
 
     _rule = Rule(chains[chain], id)
     _rule.action = _action

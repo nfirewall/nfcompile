@@ -125,7 +125,7 @@
         "src": "Private",
         "dst": "any",
         "proto": "any",
-        "natto": "10.20.30.40",
+        "target": "10.20.30.40",
         "id": "some-uuid-3"
       }
     ]
