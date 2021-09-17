@@ -43,6 +43,11 @@
           "valuev4": "10.250.103.0/24",
           "valuev6": "2a01:8000:5:3::/64"
         },
+        "Private": {
+          "name": "Private",
+          "type": "networkv4",
+          "valuev4": "192.168.0.0/24"
+        },
         "VPN": {
           "name": "VPN",
           "type": "networkv4",
@@ -111,5 +116,17 @@
       "default_drop": false,
       "allow_pings": true,
       "allow_local_pings": true
-    }
+    },
+    "nat": [
+      {
+        "name": "Hide",
+        "type": "snat",
+        "dport": "any",
+        "src": "Private",
+        "dst": "any",
+        "proto": "any",
+        "natto": "10.20.30.40",
+        "id": "some-uuid-3"
+      }
+    ]
   }

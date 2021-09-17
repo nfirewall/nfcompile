@@ -19,6 +19,28 @@ class JumpAction(Action):
     def get(self):
         return {"jump": {"target": self._target.name}}
 
+class SnatAction(Action):
+    def __init__(self, target) -> None:
+        self._target = target
+    def get(self):
+        return {
+            "snat": {
+                "family": "ip",
+                "addr": self._target
+            }
+        }
+
+class DnatAction(Action):
+    def __init__(self, target) -> None:
+        self._target = target
+    def get(self):
+        return {
+            "dnat": {
+                "family": "ip",
+                "addr": self._target
+            }
+        }
+
 class Set(dict):
 
     def __init__(self, name, family, type, table):
@@ -235,10 +257,10 @@ class Chain(dict):
             return None
     @hook.setter
     def hook(self, var: str):
-        if self.type != "filter":
-            raise Exception("Hook only valid for filters")
+        if self.type not in ["filter", "nat"]:
+            raise Exception("Hook not valid for this type")
         if var not in ["prerouting", "input", "forward", "output", "postrouting"]:
-            raise Exception("Invalid hook")
+            raise Exception("Invalid hook: {}".format(var))
         self["hook"] = var
 
     @property

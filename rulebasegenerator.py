@@ -1,4 +1,4 @@
-from NftObjects import AcceptAction, Chain, DropAction, JumpAction, Match, Rule, Table, Set
+from NftObjects import AcceptAction, Chain, DnatAction, DropAction, JumpAction, Match, Rule, SnatAction, Table, Set
 import json
 from ipaddress import ip_network
 import sys
@@ -6,11 +6,13 @@ import sys
 def create_tables() -> list:
     # Create table
     tables = []
-    _table = Table("inet", "inet_table")
+    _table = Table("inet", "inet_filter")
+    tables.append(_table)
+    _table = Table("inet", "inet_nat")
     tables.append(_table)
     return tables
 
-def create_chains(options, table) -> dict:
+def create_filter_chains(options, table) -> dict:
     # Create chains
     chains = {}
     if options["default_drop"]:
@@ -25,6 +27,17 @@ def create_chains(options, table) -> dict:
             _chain.priority = 0
             if chain in ["input", "forward"]:
                 _chain.default = policy
+        chains[chain] = _chain
+    return chains
+
+def create_nat_chains(table) -> dict:
+    # Create chains
+    chains = {}
+    for chain in defaultNatChains:
+        _chain = Chain("inet", "{}_chain".format(chain), table)
+        _chain.type = "nat"
+        _chain.hook = chain
+        _chain.priority = 0
         chains[chain] = _chain
     return chains
 
@@ -155,6 +168,7 @@ def parse_rule(rule: dict, chains: dict, sets: dict) -> list[Rule]:
         raise Exception("Invalid action")
         
     try:
+        id = rule["id"]
         src = rule["src"]
         dst = rule["dst"]
         sport = rule["sport"]
@@ -189,10 +203,10 @@ def parse_rule(rule: dict, chains: dict, sets: dict) -> list[Rule]:
             for source_port in sport:
                 for destination_port in dport:
                     _rules = [
-                        Rule(chains[proto], rule["id"]),
-                        Rule(chains[proto], rule["id"]),
-                        Rule(chains[proto], rule["id"]),
-                        Rule(chains[proto], rule["id"])
+                        Rule(chains[proto], id),
+                        Rule(chains[proto], id),
+                        Rule(chains[proto], id),
+                        Rule(chains[proto], id)
                     ]
                     _rulesToUse = []
                     if source:
@@ -294,6 +308,101 @@ def parse_rule(rule: dict, chains: dict, sets: dict) -> list[Rule]:
                         _rule.action = action
                         _returnRules.append(_rule)
     return _returnRules
+
+def parse_nat(nat: dict, chains: dict, sets: dict) -> Rule:
+    try:
+        src = nat["src"]
+        dst = nat["dst"]
+        type = nat["type"]
+        dport = nat["dport"]
+        natto = nat["natto"]
+        proto = nat["proto"]
+        id = nat["id"]
+    except KeyError:
+        raise Exception("Invalid NAT Rule: {}")
+    
+    if type == "hide":
+        chain = "postrouting"
+        _action = SnatAction(natto)
+    elif type == "snat":
+        chain = "postrouting"
+        _action = SnatAction(natto)
+    elif type == "dnat":
+        chain = "prerouting"
+        _action = DnatAction(natto)
+
+    _rule = Rule(chains[chain], id)
+    _rule.action = _action
+
+    if src == "any":
+        src = None
+    if dst == "any":
+        dst = None
+    if dport == "any":
+        dport = None
+    found = False
+    if src:
+        try:
+            sets["{}_v6".format(src)]
+            found = True
+            _match = Match({"payload": {"protocol": "ip6", "field": "saddr"}}, "==", "@{}_v6".format(src))
+        except KeyError:
+            pass
+
+        try:
+            sets["{}_v4".format(src)]
+            found = True
+            _match = Match({"payload": {"protocol": "ip", "field": "saddr"}}, "==", "@{}_v4".format(src))
+        except KeyError:
+            pass
+
+        if not found:
+            raise Exception("Invalid source: {}".format(src))
+        _rule.add_match(_match)
+    
+    found = False
+    if dst:
+        try:
+            sets["{}_v6".format(dst)]
+            found = True
+            _match = Match({"payload": {"protocol": "ip6", "field": "daddr"}}, "==", "@{}_v6".format(dst))
+        except KeyError:
+            pass
+
+        try:
+            sets["{}_v4".format(dst)]
+            found = True
+            _match = Match({"payload": {"protocol": "ip", "field": "daddr"}}, "==", "@{}_v4".format(dst))
+        except KeyError:
+            pass
+
+        if not found:
+            raise Exception("Invalid source: {}".format(dst))
+        _rule.add_match(_match)
+        
+    found = False
+    if dport:
+        # destination port is not None
+        found = False
+        try:
+            sets[dport]
+            if sets[dport].protocol == proto:
+                _match = Match({"payload": {"protocol": proto, "field": "dport"}}, "==", "@{}".format(dport))
+                found = True
+        except KeyError:
+            try:
+                sets["{}_{}".format(dport, proto)]
+                _match = Match({"payload": {"protocol": proto, "field": "dport"}}, "==", "@{}".format("{}_{}".format(dport, proto)))
+                found = True
+            except KeyError:
+                pass
+        if not found:
+            raise Exception("Invalid dport: {}".format(dport))
+        
+        _rule.add_match(_match)
+    
+    return _rule
+
 
 def parse_host(host: dict, table: Table, sets: dict) -> None:
     try:
@@ -501,8 +610,10 @@ if __name__ == "__main__":
     options = jsn["options"]
     objects = jsn["objects"]
     rulebase = jsn["rulebase"]
+    nat = jsn["nat"]
 
     defaultFilterChains = ["tcp", "udp", "icmp", "icmpv6", "icmp-local", "icmpv6-local", "input", "forward", "output"]
+    defaultNatChains = ["prerouting", "postrouting"]
 
     rules = []
     tables = []
@@ -510,7 +621,8 @@ if __name__ == "__main__":
 
     chains = {}
     tables = create_tables()
-    chains = create_chains(options, tables[0])
+    chains = create_filter_chains(options, tables[0])
+    chains.update(create_nat_chains(tables[0]))
     set_options(options, rules, chains)
     create_jumps(rules)
     for host in objects["hosts"].values():
@@ -524,6 +636,8 @@ if __name__ == "__main__":
     for rule in rulebase:
         for newRule in parse_rule(rule, chains, sets):
             rules.append(newRule)
+    for natrule in nat:
+        rules.append(parse_nat(natrule, chains, sets))
     
     res = {"nftables": [{"flush": {"ruleset": None}}]}
 
