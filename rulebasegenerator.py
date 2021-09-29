@@ -208,6 +208,7 @@ def parse_rule(rule: dict, chains: dict, sets: dict) -> list[Rule]:
                     ]
                     _rulesToUse = []
                     if source:
+                        found = False
                         # Source address is not None
                         try:
                             sets["{}_v4".format(source)]
@@ -328,6 +329,9 @@ def parse_nat(nat: dict, chains: dict, sets: dict) -> Rule:
     elif type == "dnat":
         chain = "prerouting"
         _action = DnatAction(target)
+    elif type == "nonat":
+        chain = "postrouting"
+        _action = AcceptAction()
 
     _rule = Rule(chains[chain], id)
     _rule.action = _action
@@ -463,17 +467,23 @@ def parse_network(network: dict, table: Table, sets: dict) -> None:
 def parse_service(service: dict, table: Table, sets: dict) -> None:
     try:
         name = service["name"]
-        type = service["type"]
+        protocol = service["type"]
         port = service["value"]
     except KeyError:
         raise Exception("Invalid Service")
     
-    if not type in ["tcp", "udp"]:
+    if not protocol in ["tcp", "udp"]:
         raise Exception("Invalid Service: {}".format(name))
     
     _set = Set(name, "inet", "inet_service", table)
+    if type(port) is str:
+        if port.find("-") > -1:
+            lower = port[:port.find("-")]
+            upper = port[port.find("-")+1:]
+            # This is a range
+            port = {"range": [lower, upper]}
     _set.add_member(port)
-    _set.protocol = type
+    _set.protocol = protocol
     sets[name] = _set
 
 def get_network_group_members(group: dict, objects: dict) -> tuple[list, list]:
